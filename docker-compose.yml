@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: service_center_db
+      POSTGRES_USER: service_user
+      POSTGRES_PASSWORD: service_pass
+      TZ: Europe/Kyiv
+      PGTZ: Europe/Kyiv
+    ports:
+      - "5433:5432"
+    volumes:
+      - sc_pgdata:/var/lib/postgresql/data
+      - ./migrations/001_init_schema.sql:/docker-entrypoint-initdb.d/01_init_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U service_user -d service_center_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: sc_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      SECRET_KEY: change-this-to-a-long-random-secret-key-2026
+      DATABASE_URL: postgresql+psycopg://service_user:service_pass@db:5432/service_center_db
+      TZ: Europe/Kyiv
+    ports:
+      - "8000:8000"
+
+volumes:
+  sc_pgdata:
